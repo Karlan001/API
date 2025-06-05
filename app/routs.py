@@ -1,11 +1,14 @@
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, List
 
 from fastapi import FastAPI, Depends, HTTPException, APIRouter, status
 
-from schemas import UserBase, UserIn
-from auth import Token, authenticate_user, create_access_token, get_current_active_user, ACCESS_TOKEN_EXPIRE_MINUTES, \
-    get_user, get_password_hash
+from schemas import UserBase, UserIn, BooksOut
+from auth import (Token, authenticate_user,
+                  create_access_token,
+                  get_current_active_user,
+                  ACCESS_TOKEN_EXPIRE_MINUTES,
+                  get_password_hash,)
 from database import engine, session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
@@ -15,13 +18,12 @@ import models
 app = FastAPI()
 
 
-@app.on_event("startup")
-async def startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
+# @app.on_event("startup")
+# async def startup():
+#     async with engine.begin() as conn:
+#         await conn.run_sync(models.Base.metadata.create_all)
 
 
-@app.on_event("shutdown")
 async def shutdown():
     await session.close()
     await engine.dispose()
@@ -52,6 +54,7 @@ async def read_users_me(
 ):
     return current_user
 
+
 @app.post('/registration', response_model=UserBase)
 async def registrations(new_user: UserIn):
     password = get_password_hash(new_user.password)
@@ -60,11 +63,10 @@ async def registrations(new_user: UserIn):
     await session.commit()
     return new_user
 
+@app.get('/books', response_model=List[BooksOut])
+async def get_books(user: Annotated[models.Users, Depends(get_current_active_user)]):
+    query = select(models.Books)
+    result = await session.execute(query)
+    books = result.scalars().all()
+    return books
 
-
-# @app.get('/')
-# async def get_client():
-#     query = select(models.Users)
-#     res = await session.execute(query)
-#     res1 = get_password_hash('123')
-#     return res1

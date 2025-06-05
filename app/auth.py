@@ -28,7 +28,6 @@ class TokenData(BaseModel):
     email: str | None = None
 
 
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -41,7 +40,9 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-async def get_user(email: str):
+async def get_user(
+        email: str,
+):
     query = (select(Users).where(Users.email == email))
     response = await session.execute(query)
     res = response.scalars().one_or_none()
