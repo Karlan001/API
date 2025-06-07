@@ -1,6 +1,8 @@
+import datetime
+
 import models
 from service import check_book
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Annotated, List
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -15,7 +17,7 @@ from auth import (Token, authenticate_user,
                   get_current_active_user,
                   ACCESS_TOKEN_EXPIRE_MINUTES,
                   get_password_hash, )
-from database import engine, session
+from database import session, engine, sessionmaker
 
 app = FastAPI()
 
@@ -72,7 +74,7 @@ async def read_users_me(
 
 @app.get("/users", response_model=List[UserBase])
 async def get_all_users():
-    query = select(models.Users).options(selectinload(models.Users.books))
+    query = select(models.Users)
     result = await session.execute(query)
     users = result.scalars().all()
     return users
@@ -80,7 +82,7 @@ async def get_all_users():
 
 @app.get('/books', response_model=List[BooksOut])
 async def get_books():
-    query = select(models.Books).options(joinedload(models.Books.reader))
+    query = select(models.Books).where(models.Books.quantity > 0)
     result = await session.execute(query)
     books = result.scalars().all()
     return books
@@ -97,13 +99,14 @@ async def book_issue(
     possibility_check = check_book(user, book_id.id)
     if book and book.quantity > 0:
         if possibility_check:
-            quantity = book.quantity - 1
+            quantity = book.decrement_quantity
             update_value = update(models.Books).where(models.Books.id == book_id.id).values(quantity=quantity,
                                                                                             reader_id=user.id)
             borrowed_books = models.BorrowedBooks(book_id=book_id.id, reader_id=user.id)
             await session.execute(update_value)
             session.add(borrowed_books)
             await session.commit()
+            await session.close()
             return book
         else:
             await session.rollback()
@@ -118,8 +121,19 @@ async def return_book(
         user: Annotated[models.Users, Depends(get_current_active_user)]
 ):
     query = select(models.BorrowedBooks).where(or_(
-        models.BorrowedBooks.book_id == book.book_id, models.BorrowedBooks.id == book.borrow_id))
+        models.BorrowedBooks.book_id == book.book_id, models.BorrowedBooks.id == book.borrow_id)).where(
+        models.BorrowedBooks.reader_id == user.id, models.BorrowedBooks.return_date == None)
     result = await session.execute(query)
     borrowed_book = result.scalars().one_or_none()
-    return borrowed_book
-
+    if borrowed_book and borrowed_book.return_date is None:
+        borrowed_book.return_date = datetime.utcnow()
+        stmt = select(models.Books).where(models.Books.id == borrowed_book.book_id)
+        res = await session.execute(stmt)
+        getted_book = res.scalars().one_or_none()
+        update_book = update(models.Books).where(models.Books.id == book.book_id).values(
+            quantity=getted_book.increment_quantity, reader_id=None)
+        await session.execute(update_book)
+        await session.commit()
+        await session.close()
+        return borrowed_book
+    return JSONResponse({"message": "This book already return"})

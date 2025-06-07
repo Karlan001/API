@@ -36,6 +36,15 @@ class Books(Base):
     reader: Mapped[Optional['Users']] = relationship("Users", back_populates='books', lazy='joined')
 
 
+    @property
+    def increment_quantity(self):
+        return self.quantity + 1
+
+    @property
+    def decrement_quantity(self):
+        return self.quantity - 1
+
+
 class BorrowedBooks(Base):
     __tablename__ = "borrowedBooks"
 
