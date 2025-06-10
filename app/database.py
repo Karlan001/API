@@ -8,7 +8,7 @@ DATABASE_URL = 'postgresql+asyncpg://admin:qwertyu123@localhost:5433/libraryAPI'
 
 engine = create_async_engine(DATABASE_URL, echo=True, future=True)
 
-async_session = sessionmaker(
+async_session = async_sessionmaker(
     bind=engine, expire_on_commit=False, class_=AsyncSession
 )
 session = async_session()

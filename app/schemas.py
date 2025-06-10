@@ -40,7 +40,7 @@ class BooksOut(BaseModel):
     year_of_public: int | None
     ISBN: int | None
     quantity: int
-    reader_id: int | None
+    # reader_id: int | None
 
     class Config:
         orm_model = True
@@ -54,7 +54,7 @@ class BooksIn(BaseModel):
     year_of_public: int
     ISBN: int
     quantity: int
-    reader_id: "UserBase"
+    # reader_id: "UserBase"
 
     class Config:
         orm_model = True

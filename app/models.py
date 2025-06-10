@@ -2,13 +2,20 @@ from sqlalchemy.orm import mapped_column, relationship
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Table, Column, Integer
 from datetime import datetime
 from typing import List, Optional
-# from database import Base
+
 
 class Base(AsyncAttrs, DeclarativeBase):
     pass
+
+
+class AssociateTable(Base):
+    __tablename__ = 'associate_table'
+
+    reader_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey('books.id'), primary_key=True)
 
 
 class Users(Base):
@@ -19,7 +26,8 @@ class Users(Base):
     password: Mapped[str] = mapped_column(nullable=False)
     is_admin: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[Optional[datetime]] = mapped_column(default=datetime.utcnow())
-    books: Mapped[Optional[List['Books']]] = relationship("Books", back_populates='reader', lazy='selectin')
+    books: Mapped[Optional[List['Books']]] = relationship('Books', back_populates='reader', lazy='selectin',
+                                                    secondary='associate_table')
 
 
 class Books(Base):
@@ -32,9 +40,9 @@ class Books(Base):
     ISBN: Mapped[Optional[int]] = mapped_column(unique=True)
     quantity: Mapped[int] = mapped_column(default=0)
     appended_at: Mapped[Optional[datetime]] = mapped_column(default=datetime.utcnow())
-    reader_id: Mapped[Optional['Users']] = mapped_column(ForeignKey('users.id'))
-    reader: Mapped[Optional['Users']] = relationship("Users", back_populates='books', lazy='joined')
-
+    # reader_id: Mapped[Optional[List['Users']]] = mapped_column(ForeignKey('users.id'))
+    reader: Mapped[Optional[List['Users']]] = relationship('Users', back_populates='books', lazy='joined',
+                                                     secondary='associate_table')
 
     @property
     def increment_quantity(self):
